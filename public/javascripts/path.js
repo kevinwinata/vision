@@ -1,73 +1,146 @@
-$(function(){
-var canvas = document.getElementById('canvas'),
-	ctx = canvas.getContext('2d'),
-	img = new Image(), imgd, 
-	width = canvas.width,
-	height = canvas.height,
-	origArray = [], 
-	currentArray = [],
+var map, mapOptions, featureOpts,
+	mapContainer = document.getElementById('map-canvas'),
+	copyContainer = document.getElementById('copy-canvas'),
+	height = mapContainer.clientHeight, 
+	width = mapContainer.clientWidth,
+	ctx, imgd,
+	foreground = [255,0,255,255],
+	background = [0,0,0,0],
 	sourceNode, targetNode,
-	foreground = [255,255,255,255],
-	background = [0,0,0,255];
+	MY_MAPTYPE_ID = 'custom_style';
 
-img.src = '/images/map.png';
-img.onload = function() {
-	ctx.drawImage(img, 0, 0);
-	imgd = ctx.getImageData(0, 0, width, height);
+function initialize() {
+	mapOptions = {
+		zoom: 13,
+		center: new google.maps.LatLng(-6.915410, 107.613439),
+		mapTypeControl: false,
+		zoomControl: false,
+		streetViewControl: false,
+		panControl: false,
+		mapTypeControlOptions: {
+			mapTypeIds: [google.maps.MapTypeId.ROADMAP, MY_MAPTYPE_ID]
+		},
+		mapTypeId: MY_MAPTYPE_ID
+	};
 
-	imgd.getData = function() {
-		var arr = [],
-			i = this.data.length;
-		while (i--) 
-			arr[i] = this.data[i];
-		return arr;
-	}
+	featureOpts = [
+		{
+			featureType: "all",
+			elementType: "labels",
+			stylers: [
+				{ visibility: "off" }
+			]
+		}
+	];
 
-	imgd.setData = function(arr) {
-		var i = this.data.length;
-		while (i--) 
-			this.data[i] = arr[i];
-	}
+	map = new google.maps.Map(mapContainer,	mapOptions);
+	map.mapTypes.set(MY_MAPTYPE_ID, new google.maps.StyledMapType(featureOpts, {}));
 
-	origArray = imgd.getData();
-}
+	google.maps.event.addListener(map,'zoom_changed', addEmptyNode);
+	google.maps.event.addListener(map,'center_changed', addEmptyNode);
+	google.maps.event.addListener(map,'click', function(e) {
+		var point = latLngToPoint(e.latLng);
+			approx = approximate(imgd.data,point.x,point.y);
 
-$('#button-threshold').click(function(){
-	var min = [200,200,100,0];
-	var max = [256,256,150,255];
-
-	threshold(imgd,min,max);
-
-	ctx.putImageData(imgd, 0, 0);
-});
-
-$('#button-thin').click(function(){
-	thin(imgd);
-
-	ctx.putImageData(imgd, 0, 0);
-});
-
-$('#button-reset').click(function(){
-	imgd.setData(origArray);
-	ctx.putImageData(imgd, 0, 0);
-});
-
-$('#canvas').on('click', function(e) { 
-	var x = parseInt(e.pageX - $('#canvas').offset().left);
-    var y = parseInt(e.pageY - $('#canvas').offset().top);
-	if(isForeground(imgd.data,x,y)) {
-		if (!sourceNode) {
-			sourceNode = [x,y];
-			alert("source = "+x+" "+y);
+		if(approx) {
+			var x = approx[0], y = approx[1];
+			if (!sourceNode) {
+				sourceNode = [x,y];
+				alert("source = "+"("+x+","+y+")");
+			}
+			else {
+				targetNode = [x,y];
+				alert("target = "+"("+x+","+y+")");
+				trace(imgd,x,y);
+				ctx.putImageData(imgd, 0, 0);
+				sourceNode = null;
+			}
 		}
 		else {
-			targetNode = [x,y];
-			alert("target = "+x+" "+y);
-			trace(imgd,x,y);
+			alert("("+point.x+","+point.y+") is not foreground. Please select another point.");
 		}
-	} 
-	ctx.putImageData(imgd, 0, 0);
-});
+	});
+	google.maps.event.addListener(map,'idle', addCanvasOverlay);
+}
+
+google.maps.event.addDomListener(window, 'load', initialize);
+
+function addEmptyNode() {
+	copyContainer.replaceChild(document.createTextNode(""), 
+			copyContainer.childNodes[0]);
+	sourceNode = null;
+}
+
+function latLngToPoint(latLng) {
+	overlay = new google.maps.OverlayView();
+	overlay.draw = function() {};
+	overlay.setMap(map);
+	return overlay.getProjection().fromLatLngToDivPixel(latLng);
+}
+
+function addCanvasOverlay() {
+	var transform = $(".gm-style>div:first>div").css("transform"),
+		comp = transform.split(","),	//split up the transform matrix
+		mapleft = parseFloat(comp[4]),	//get left value
+		maptop = parseFloat(comp[5]);	//get top value
+	$(".gm-style>div:first>div").css({	//get the map container. not sure if stable
+		"transform":"none",
+		"left":mapleft,
+		"top":maptop,
+	});
+
+	html2canvas(mapContainer, {
+		useCORS: true,
+		onrendered: function(canvas) {
+			ctx = canvas.getContext('2d'),
+			imgd = ctx.getImageData(0, 0, width, height),
+
+			threshold(imgd,[230,230,230,0],[256,256,256,255]);
+			//dilate(imgd,min,max);
+			thin(imgd);
+			ctx.putImageData(imgd, 0, 0);
+
+			copyContainer.replaceChild(canvas, copyContainer.childNodes[0]);
+
+			$(".gm-style>div:first>div").css({
+				left:0,
+				top:0,
+				"transform":transform
+			});
+		}
+	});
+
+}
+
+function threshold(image,min,max) {
+	for (var i = 0; i < width; i++) {
+		for (var j = 0; j < height; j++) {
+			if(thresholdPixel(image.data,i,j,min,max)) {
+				setPixel(image.data,i,j,foreground);
+			}
+				else {
+				setPixel(image.data,i,j,background);
+			}
+		}
+	}
+}
+
+function dilate(image) {
+	var temp = [],
+		i = image.data.length;
+	while (i--) 
+		temp[i] = image.data[i];
+	for (var i = 0; i < width; i++) {
+		for (var j = 0; j < height; j++) {
+			if(isForeground(temp,i,j) || !superimpose(temp,i,j)) {
+				setPixel(image.data,i,j,foreground);
+			}
+			else {
+				setPixel(image.data,i,j,background);
+			}
+		}
+	}
+}
 
 function trace(image) {
 	var curNode = [],
@@ -80,6 +153,7 @@ function trace(image) {
 	path.push(curNode);
 
 	while(curNode[0] != targetNode[0] || curNode[1] != targetNode[1]) {
+		//alert(curNode);
 		var possibleDir = [];
 		for(var i = 0; i < 8; i++) {
 			var temp = moveDir(curNode[0],curNode[1],i);
@@ -90,8 +164,9 @@ function trace(image) {
 			}
 		}
 		if(possibleDir.length) {
-			if(possibleDir.length > 1)
+			if(possibleDir.length > 1) {
 				lastIdx = path.length;
+			}
 			stack = stack.concat(possibleDir);
 		}
 		else {
@@ -106,7 +181,7 @@ function trace(image) {
 	}
 
 	path.forEach(function(n) {
-		setPixel(image.data,n[0],n[1],[255,0,255,255]);
+		setPixel(image.data,n[0],n[1],[255,255,0,255]);
 	});
 
 }
@@ -131,17 +206,29 @@ function opposite(dir) {
 	return (dir+4)%8;
 }
 
-function threshold(image,min,max) {
-	for (var i = 0; i < width; i++) {
-		for (var j = 0; j < height; j++) {
-			if(thresholdPixel(image.data,i,j,min,max)) {
-				setPixel(image.data,i,j,foreground);
-			}
-				else {
-				setPixel(image.data,i,j,background);
-			}
-		}
-	}
+function superimpose(data,x,y) {
+	return (isBackground(data,x-1,y-1) && 
+			isBackground(data,x-1,y) && 
+			isBackground(data,x-1,y+1) && 
+			isBackground(data,x,y-1) && 
+			isBackground(data,x,y) && 
+			isBackground(data,x,y+1) && 
+			isBackground(data,x+1,y-1) && 
+			isBackground(data,x+1,y) && 
+			isBackground(data,x+1,y+1));
+}
+
+function approximate(data,x,y) {
+	if(isForeground(data,x,y)) return [x,y];
+	if(isForeground(data,x-1,y-1)) return [x-1,y-1];
+	if(isForeground(data,x-1,y)) return [x-1,y];
+	if(isForeground(data,x-1,y+1)) return [x-1,y+1];
+	if(isForeground(data,x,y-1)) return [x,y-1];
+	if(isForeground(data,x,y+1)) return [x,y+1];
+	if(isForeground(data,x+1,y-1)) return [x+1,y-1];
+	if(isForeground(data,x+1,y)) return [x+1,y];
+	if(isForeground(data,x+1,y+1)) return [x+1,y+1];
+	return null;
 }
 
 function thin(image) {
@@ -150,8 +237,8 @@ function thin(image) {
 	do {
 		hasChange = false;
 		var i;
-		for(i = 1;i < img.width - 1; i++) {
-			for(j = 1; j < img.height - 1; j++) {
+		for(i = 1;i < width - 1; i++) {
+			for(j = 1; j < height - 1; j++) {
 				var cPoint = [i,j];
 				setPArray(image,cPoint);
 				setAB();
@@ -167,8 +254,8 @@ function thin(image) {
 			removeWhite(image,aPoint[i]);
 		}
 		aPoint.length = 0;
-		for (i = 1; i < img.width - 1; i++) {
-			for(j = 1; j < img.height - 1; j++) {
+		for (i = 1; i < width - 1; i++) {
+			for(j = 1; j < height - 1; j++) {
 				var cPoint = [i,j];
 				setPArray(image,cPoint);
 				setAB();
@@ -246,21 +333,6 @@ function setPArray(image,p) {
 	cArray = marray;
 }
 
-function merge() {
-	for (var i = 0; i < width; i++) {
-		for (var j = 0; j < height; j++) {
-			var arr1 = getPixel(origArray,i,j);
-			var arr2 = getPixel(currentArray,i,j);
-			setPixel(currentArray,i,j,[
-				(arr1[0]+arr2[0]) / 2,
-				(arr1[1]+arr2[1]) / 2,
-				(arr1[2]+arr2[2]) / 2,
-				255
-			]);
-		}
-	}
-}
-
 function getPixel(data,x,y) {
 	var i = (width * y + x) * 4;
 	return [
@@ -282,7 +354,7 @@ function eqPixel(data,x,y,pixel) {
 function isForeground(data,x,y) {
 	var i = (width * y + x) * 4;
 	return (data[i  ] == 255 &&
-			data[i+1] == 255 &&
+			data[i+1] == 0 &&
 			data[i+2] == 255 &&
 			data[i+3] == 255);
 }
@@ -292,7 +364,7 @@ function isBackground(data,x,y) {
 	return (data[i  ] == 0 &&
 			data[i+1] == 0 &&
 			data[i+2] == 0 &&
-			data[i+3] == 255);
+			data[i+3] == 0);
 }
 
 function setPixel(data,x,y,pixel) {
@@ -311,17 +383,3 @@ function thresholdPixel(data,x,y,min,max) {
 			data[i+3] >= min[3] && data[i+3] <= max[3]);
 }
 
-function getData(data) {
-	var arr = [],
-		i = data.length;
-	while (i--) arr[i] = data[i];
-	return arr;
-}
-
-function setData(data,arr) {
-	for (var i = 0; i < data.length; i++) {
-		data[i] = arr[i];
-	}
-}
-
-});

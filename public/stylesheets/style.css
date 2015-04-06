@@ -1,5 +1,25 @@
-body { 
+html, body {
 	font: 14px helvetica neue, helvetica, arial, sans-serif;
+}
+
+#map-canvas { 
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	height: 600px;
+	width: 800px;
+	margin: 0px;
+	padding: 0px;
+}
+
+#copy-canvas {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	pointer-events: none;
+	height: 600px;
+	width: 800px;
+	border:1px solid #000000;
 }
 
 .nav-site {
