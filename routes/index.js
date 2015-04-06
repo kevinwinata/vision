@@ -13,4 +13,8 @@ router.get('/house', function(req, res) {
 	res.render('house', { title: 'Satellite House Detector' })
 });
 
+router.get('/shape', function(req, res) {
+	res.render('shape', { title: 'Satellite House Shape Processor' })
+});
+
 module.exports = router;

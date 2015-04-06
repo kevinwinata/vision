@@ -14,8 +14,8 @@ function initialize() {
 	for (var i = 0; i < height; i++) zeros[i] = 0;
 
 	mapOptions = {
-		zoom: 17,
-		center: new google.maps.LatLng(-6.915410, 107.613439),
+		zoom: 18,
+		center: new google.maps.LatLng(-6.8734451, 107.5682454),
 		mapTypeControl: false,
 		zoomControl: false,
 		streetViewControl: false,
@@ -44,7 +44,7 @@ function initialize() {
 			pixel = getPixel(origimgd,point.x,point.y);
 		pixelSamples.push(pixel);
 		alert(pixelSamples);
-		colorMap(imgd,50,2);
+		colorMap(imgd,20,2);
 		ctx.putImageData(imgd, 0, 0);
 	});
 }
@@ -77,7 +77,7 @@ function addCanvasOverlay() {
 				origimgd[i] = imgd.data[i];
 
 			if(pixelSamples.length) {
-				colorMap(imgd,50,2);
+				colorMap(imgd,20,2);
 				ctx.putImageData(imgd, 0, 0);
 			}
 			else {
