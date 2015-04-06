@@ -43,8 +43,8 @@ $('#button-colormap').click(function(){
 	ctx.putImageData(imgd, 0, 0);
 });
 
-$('#button-erode').click(function(){
-	erode(imgd);
+$('#button-edge').click(function(){
+	edgeDetection(imgd);
 
 	ctx.putImageData(imgd, 0, 0);
 });
@@ -131,15 +131,23 @@ function threshold(image,min,max) {
 	}
 }
 
-function erode(image) {
+function edgeDetection(image) {
+	var orig = image.getData();
 	var temp = image.getData();
 	for (var i = 0; i < width; i++) {
 		for (var j = 0; j < height; j++) {
-			if(isBackground(temp,i,j) || !superimpose(temp,i,j)) {
-				setPixel(image.data,i,j,background);
+			if(isBackground(orig,i,j) || !superimpose(orig,i,j)) {
+				setPixel(temp,i,j,background);
 			}
 			else {
-				setPixel(image.data,i,j,foreground);
+				setPixel(temp,i,j,foreground);
+			}
+		}
+	}
+	for (var i = 0; i < width; i++) {
+		for (var j = 0; j < height; j++) {
+			if(isForeground(orig,i,j) && isForeground(temp,i,j)) {
+				setPixel(image.data,i,j,background);
 			}
 		}
 	}
