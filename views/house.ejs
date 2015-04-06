@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8 />
+		<title><%= title %></title>
+    	<link rel='stylesheet' href='/stylesheets/style.css' />
+		<script src="/javascripts/jquery.min.js"></script>
+		<script src="/javascripts/house.js"></script>
+	</head>
+	<body>
+		<ul class="nav-site">
+			<li><a href="/house">HouseDetector</a></li>
+			<li><a href="/path">PathFinder</a></li>
+		</ul>
+
+		<button id="button-threshold">Threshold</button>
+		<button id="button-erode">Erode</button>
+		<button id="button-label">Label</button>
+		<button id="button-merge">Merge</button>
+		<button id="button-reset">Reset</button>
+
+		<canvas id="canvas" width="800" height="600" style="border:1px solid #000000;" ></canvas>
+	</body>
+</html>
