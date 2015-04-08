@@ -6,8 +6,8 @@ html, body {
 	position: absolute;
 	top: 0px;
 	left: 0px;
-	height: 600px;
-	width: 800px;
+	height: 225px;
+	width: 225px;
 	margin: 0px;
 	padding: 0px;
 }
@@ -17,12 +17,17 @@ html, body {
 	top: 0px;
 	left: 0px;
 	pointer-events: none;
-	height: 600px;
-	width: 800px;
+	height: 225px;
+	width: 225px;
 	border:1px solid #000000;
 }
 
 .nav-site {
 	float: right;
 	margin: 0;
+}
+
+#info {	
+	float: right;
+	margin: 0
 }
