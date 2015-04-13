@@ -17,7 +17,7 @@ var canvas = document.getElementById('canvas'),
 for (var i = 0; i < height; i++) zeros[i] = 0;
 for (var i = 0; i < width; i++) labels[i] = zeros.slice();
 
-img.src = '/images/face2.jpg';
+img.src = '/images/ice.jpg';
 img.onload = function() {
 	ctx.drawImage(img, 0, 0);
 	imgd = ctx.getImageData(0, 0, width, height);
@@ -41,7 +41,7 @@ img.onload = function() {
 
 
 $('#button-colormap').click(function(){
-	colorMap(imgd,20,1);
+	colorMap(imgd,50,2);
 
 	ctx.putImageData(imgd, 0, 0);
 });
@@ -53,7 +53,7 @@ $('#button-edge').click(function(){
 });
 
 $('#button-label').click(function(){
-	label(imgd);
+	lce(10);
 
 	ctx.putImageData(imgd, 0, 0);
 });
@@ -121,7 +121,110 @@ function colorMap(image,maxDistance,mode) {
 			}
 		}
 	}
-	alert(curlab);
+
+	for (var i = 0; i < curlab; i++) sumx[i] = 0;
+	for (var i = 0; i < curlab; i++) sumy[i] = 0;
+	for (var i = 0; i < curlab; i++) npix[i] = 0;
+
+	for (var i = 0; i < width; i++) {
+		for (var j = 0; j < height; j++) {
+			if(labels[i][j] != 0) {
+				setPixel(image.data,i,j,foreground);
+				sumx[labels[i][j]] += i;
+				sumy[labels[i][j]] += j;
+				npix[labels[i][j]] += 1;
+			}
+			else {
+				setPixel(image.data,i,j,background);
+			}
+		}
+	}
+
+	for (var i = 0; i < curlab; i++) {
+		centers[i] = [sumx[i]/npix[i], sumy[i]/npix[i]];
+	}
+	processed = true;
+}
+
+function getMinMax(x0,y0,x1,y1) {
+	var min = [255,255,255],
+		max = [0,0,0];
+	for (var i = x0; i < x1; i++) {
+		for (var j = y0; j < y1; j++) {
+			var pixel = getPixel(imgd.data,i,j);
+			if(pixel[0]<min[0]) min[0] = pixel[0];
+			if(pixel[1]<min[1]) min[1] = pixel[1];
+			if(pixel[2]<min[2]) min[2] = pixel[2];
+			if(pixel[0]>max[0]) max[0] = pixel[0];
+			if(pixel[1]>max[1]) max[1] = pixel[1];
+			if(pixel[2]>max[2]) max[2] = pixel[2];
+		}
+	}
+	return [min,max];
+}
+
+function remap(v,min,max) {
+	return (v-min)/(max-min)*v;
+}
+
+function lceGetRGB(x,y,r) {
+	var minmax = getMinMax(x-r,y-r,x+r,y+r),
+		min = minmax[0],
+		max = minmax[1],
+		pixel = getPixel(imgd.data,x,y);
+	return [
+		remap(pixel[0],min[0],max[0]),
+		remap(pixel[1],min[1],max[1]),
+		remap(pixel[2],min[2],max[2]),
+		255
+	];
+}
+
+function lce(r) {
+	for (var i = 0; i < width; i++) {
+		for (var j = 0; j < height; j++) {
+			setPixel(imgd.data,i,j,lceGetRGB(i,j,r));
+		}
+	}
+}
+
+function localContrast(image,maxDistance,mode) {
+	var stack = [],
+		curlab = 1;
+
+	for (var n = 0; n < pixelSamples.length; n++) {
+		for (var i = 0; i < width; i++) {
+			for (var j = 0; j < height; j++) {
+				if(countDist(image.data,i,j,[pixelSamples[n]],mode) <= maxDistance && 
+					labels[i][j] == 0) 
+				{
+					stack.push([i,j]);
+					while(stack.length) {
+						var p = stack.pop(),
+							px = getPixel(image.data,p[0],p[1]);
+						labels[p[0]][p[1]] = curlab;
+						if( p[0]-1 >= 0 && labels[p[0]-1] && 
+							countDist(image.data,p[0]-1,p[1],[pixelSamples[n]],mode) <= maxDistance && 
+							labels[p[0]-1][p[1]] == 0) 
+							stack.push([p[0]-1,p[1]]);
+						if( p[0]+1 <= width && labels[p[0]+1] && 
+							countDist(image.data,p[0]+1,p[1],[pixelSamples[n]],mode) <= maxDistance && 
+							labels[p[0]+1][p[1]] == 0) 
+							stack.push([p[0]+1,p[1]]);
+						if( p[1]-1 >= 0 && labels[p[0]] && 
+							countDist(image.data,p[0],p[1]-1,[pixelSamples[n]],mode) <= maxDistance && 
+							labels[p[0]][p[1]-1] == 0) 
+							stack.push([p[0],p[1]-1]);
+						if( p[1]+1 <= height && labels[p[0]] && 
+							countDist(image.data,p[0],p[1]+1,[pixelSamples[n]],mode) <= maxDistance && 
+							labels[p[0]][p[1]+1] == 0) 
+							stack.push([p[0],p[1]+1]);
+					}
+					curlab++;
+				}
+			}
+		}
+	}
 
 	for (var i = 0; i < curlab; i++) sumx[i] = 0;
 	for (var i = 0; i < curlab; i++) sumy[i] = 0;
