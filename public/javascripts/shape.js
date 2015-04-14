@@ -17,7 +17,7 @@ var canvas = document.getElementById('canvas'),
 for (var i = 0; i < height; i++) zeros[i] = 0;
 for (var i = 0; i < width; i++) labels[i] = zeros.slice();
 
-img.src = '/images/ice.jpg';
+img.src = '/images/face.jpg';
 img.onload = function() {
 	ctx.drawImage(img, 0, 0);
 	imgd = ctx.getImageData(0, 0, width, height);
@@ -40,20 +40,21 @@ img.onload = function() {
 }
 
 
+$('#button-contrast').click(function(){
+	//lce(10);
+	localContrast(imgd,50,1,8);
+
+	ctx.putImageData(imgd, 0, 0);
+});
+
 $('#button-colormap').click(function(){
-	colorMap(imgd,50,2);
+	colorMap(imgd,50,1);
 
 	ctx.putImageData(imgd, 0, 0);
 });
 
 $('#button-edge').click(function(){
 	edgeDetection(imgd);
-
-	ctx.putImageData(imgd, 0, 0);
-});
-
-$('#button-label').click(function(){
-	lce(10);
 
 	ctx.putImageData(imgd, 0, 0);
 });
@@ -82,6 +83,8 @@ $('#canvas').on('click', function(e) {
 		//alert(pixelSamples);
 		$("#info").append(pixel[0]+","+pixel[1]+","+pixel[2]+"<br/>");
 	}
+	// flood(imgd,x,y);
+	// ctx.putImageData(imgd, 0, 0);
 });
 
 function colorMap(image,maxDistance,mode) {
@@ -188,40 +191,39 @@ function lce(r) {
 	}
 }
 
-function localContrast(image,maxDistance,mode) {
+function localContrast(image,maxDistance,mode,r) {
 	var stack = [],
 		curlab = 1;
 
-	for (var n = 0; n < pixelSamples.length; n++) {
-		for (var i = 0; i < width; i++) {
-			for (var j = 0; j < height; j++) {
-				if(countDist(image.data,i,j,[pixelSamples[n]],mode) <= maxDistance && 
-					labels[i][j] == 0) 
-				{
-					stack.push([i,j]);
-					while(stack.length) {
-						var p = stack.pop(),
-							px = getPixel(image.data,p[0],p[1]);
-						labels[p[0]][p[1]] = curlab;
-						if( p[0]-1 >= 0 && labels[p[0]-1] && 
-							countDist(image.data,p[0]-1,p[1],[pixelSamples[n]],mode) <= maxDistance && 
-							labels[p[0]-1][p[1]] == 0) 
-							stack.push([p[0]-1,p[1]]);
-						if( p[0]+1 <= width && labels[p[0]+1] && 
-							countDist(image.data,p[0]+1,p[1],[pixelSamples[n]],mode) <= maxDistance && 
-							labels[p[0]+1][p[1]] == 0) 
-							stack.push([p[0]+1,p[1]]);
-						if( p[1]-1 >= 0 && labels[p[0]] && 
-							countDist(image.data,p[0],p[1]-1,[pixelSamples[n]],mode) <= maxDistance && 
-							labels[p[0]][p[1]-1] == 0) 
-							stack.push([p[0],p[1]-1]);
-						if( p[1]+1 <= height && labels[p[0]] && 
-							countDist(image.data,p[0],p[1]+1,[pixelSamples[n]],mode) <= maxDistance && 
-							labels[p[0]][p[1]+1] == 0) 
-							stack.push([p[0],p[1]+1]);
-					}
-					curlab++;
+	for (var i = 0; i < width; i++) {
+		for (var j = 0; j < height; j++) {
+			if(countDist(image.data,i,j,[lceGetRGB(i,j,r)],mode) <= maxDistance && 
+				labels[i][j] == 0) 
+			{
+				stack.push([i,j]);
+				var lc = lceGetRGB(i,j,r);
+				while(stack.length) {
+					var p = stack.pop(),
+						px = getPixel(image.data,p[0],p[1]);
+					labels[p[0]][p[1]] = curlab;
+					if( p[0]-1 >= 0 && labels[p[0]-1] && 
+						countDist(image.data,p[0]-1,p[1],[lc],mode) <= maxDistance && 
+						labels[p[0]-1][p[1]] == 0) 
+						stack.push([p[0]-1,p[1]]);
+					if( p[0]+1 <= width && labels[p[0]+1] && 
+						countDist(image.data,p[0]+1,p[1],[lc],mode) <= maxDistance && 
+						labels[p[0]+1][p[1]] == 0) 
+						stack.push([p[0]+1,p[1]]);
+					if( p[1]-1 >= 0 && labels[p[0]] && 
+						countDist(image.data,p[0],p[1]-1,[lc],mode) <= maxDistance && 
+						labels[p[0]][p[1]-1] == 0) 
+						stack.push([p[0],p[1]-1]);
+					if( p[1]+1 <= height && labels[p[0]] && 
+						countDist(image.data,p[0],p[1]+1,[lc],mode) <= maxDistance && 
+						labels[p[0]][p[1]+1] == 0) 
+						stack.push([p[0],p[1]+1]);
 				}
+				curlab++;
 			}
 		}
 	}
@@ -248,6 +250,30 @@ function localContrast(image,maxDistance,mode) {
 		centers[i] = [sumx[i]/npix[i], sumy[i]/npix[i]];
 	}
 	processed = true;
+}
+
+function flood(image,x,y) {
+	var stack = [],
+		px = getPixel(image.data,x,y);
+	stack.push([x,y]);
+	while(stack.length) {
+		var p = stack.pop();
+		setPixel(image.data,p[0],p[1],background);
+		if( p[0]-1 >= 0 && !isGrey(getPixel(image.data,p[0]-1,p[1]),30)) 
+			stack.push([p[0]-1,p[1]]);
+		if( p[0]+1 <= width && !isGrey(getPixel(image.data,p[0]+1,p[1]),30)) 
+			stack.push([p[0]+1,p[1]]);
+		if( p[1]-1 >= 0 && !isGrey(getPixel(image.data,p[0],p[1]-1),30)) 
+			stack.push([p[0],p[1]-1]);
+		if( p[1]+1 <= height && !isGrey(getPixel(image.data,p[0],p[1]+1),30)) 
+			stack.push([p[0],p[1]+1]);
+	}
+}
+
+function isGrey(pixel,n) {
+	return (Math.abs(pixel[0] - pixel[1]) < n &&
+			Math.abs(pixel[1] - pixel[2]) < n &&
+			Math.abs(pixel[0] - pixel[2]) < n);
 }
 
 function threshold(image,min,max) {
