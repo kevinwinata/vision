@@ -4,9 +4,8 @@
 		<meta charset=utf-8 />
 		<title><%= title %></title>
     	<link rel='stylesheet' href='/stylesheets/style.css' />
-		<script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
 		<script src="/javascripts/jquery.min.js"></script>
-		<script src="/javascripts/html2canvas.js"></script>
+		<script src="/javascripts/contrast.js"></script>
 	</head>
 	<body>
 		<ul class="nav-site">
@@ -15,9 +14,14 @@
 			<li><a href="/contrast">Automatic Segmentation</a></li>
 			<li><a href="/shape">Shape Processor</a></li>
 		</ul>
+		<p id="info"></p>
 
-		<div id="map-canvas"></div>
-		<div id="copy-canvas"><p/></div>
-		<script src="/javascripts/path.js"></script>
+		<button id="button-contrast">Local Contrast</button>
+		<button id="button-colormap">Color Map</button>
+		<button id="button-edge">Edge Detection</button>
+		<button id="button-merge">Merge</button>
+		<button id="button-reset">Reset</button>
+
+		<canvas id="canvas" width="200" height="150" style="border:1px solid #000000;" ></canvas>
 	</body>
 </html>
